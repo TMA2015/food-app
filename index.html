@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#FAF8F3" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>FOOD</title>
+  <style>
+    html,body{margin:0;min-height:100%;background:#faf8f3;color:#22231f;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .loading{min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center}
+    .card{max-width:520px}.logo{font-weight:800;font-size:28px;letter-spacing:-.06em}.logo i{font-style:normal;color:#657254}.spinner{width:32px;height:32px;margin:24px auto;border:3px solid #e8e5de;border-top-color:#657254;border-radius:50%;animation:s .8s linear infinite}@keyframes s{to{transform:rotate(360deg)}}p{color:#73746d;line-height:1.6}button{min-height:46px;padding:0 18px;border:0;border-radius:12px;background:#657254;color:white;font:inherit;font-weight:700}
+  </style>
+</head>
+<body>
+  <main class="loading"><div class="card"><div class="logo">FOOD<i>.</i></div><div class="spinner"></div><p id="status">Đang mở Food App…</p><button id="retry" hidden>Tải lại</button></div></main>
+  <script>
+    async function boot(){
+      const status=document.getElementById('status');
+      const retry=document.getElementById('retry');
+      retry.hidden=true;
+      status.textContent='Đang mở Food App…';
+      try{
+        if(!('DecompressionStream' in window)) throw new Error('Trình duyệt này chưa hỗ trợ giải nén trực tiếp. Hãy cập nhật Safari/Chrome lên phiên bản mới.');
+        const res=await fetch('./app.html.gz?v=0.9',{cache:'no-store'});
+        if(!res.ok) throw new Error('Không tải được dữ liệu ứng dụng ('+res.status+').');
+        const stream=res.body.pipeThrough(new DecompressionStream('gzip'));
+        const html=await new Response(stream).text();
+        document.open();
+        document.write(html);
+        document.close();
+      }catch(err){
+        console.error(err);
+        status.textContent='Không thể mở ứng dụng: '+(err?.message||err);
+        retry.hidden=false;
+      }
+    }
+    document.getElementById('retry').addEventListener('click',boot);
+    boot();
+  </script>
+</body>
+</html>
