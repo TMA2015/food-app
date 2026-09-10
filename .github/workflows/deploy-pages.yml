@@ -32,25 +32,80 @@ jobs:
           grep -q '<!doctype html>' site/index.html
           touch site/.nojekyll
 
-      - name: Add rice tab to planner selector
+      - name: Sync rice and soup across app
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('site/index.html')
           s=p.read_text(encoding='utf-8')
-          old="function candidatesFor(role,category){if(role==='main')return mainPool();if(role==='veg')return vegPool();if(role==='soup')return soupPool();return category?completeByCategory(category):completePool()}"
-          new="function candidatesFor(role,category){if(role==='main')return mainPool();if(role==='veg')return vegPool();if(role==='soup')return soupPool();if(role==='rice')return [rice];return category?completeByCategory(category):completePool()}"
-          if old not in s:
-              raise SystemExit('candidatesFor pattern not found')
-          s=s.replace(old,new,1)
-          old_tabs="const selectorTabs=[['Món chính','main',null],['Món rau','veg',null],['Món canh','soup',null],['Món một bữa','complete','all'],['Bún / Phở / Mì','complete','noodles'],['Cơm một món','complete','rice_plate'],['Salad / Gỏi','complete','salad'],['Lẩu / BBQ / Âu','complete','themes'],['Ăn ngoài','complete','outside']];"
-          new_tabs="const selectorTabs=[['Món chính','main',null],['Món rau','veg',null],['Món canh','soup',null],['Cơm','rice',null],['Món một bữa','complete','all'],['Bún / Phở / Mì','complete','noodles'],['Cơm một món','complete','rice_plate'],['Salad / Gỏi','complete','salad'],['Lẩu / BBQ / Âu','complete','themes'],['Ăn ngoài','complete','outside']];"
-          if old_tabs not in s:
-              raise SystemExit('selectorTabs pattern not found')
-          s=s.replace(old_tabs,new_tabs,1)
+
+          def replace_once(old,new,label):
+              global s
+              if old not in s:
+                  raise SystemExit(f'{label} pattern not found')
+              s=s.replace(old,new,1)
+
+          # Weekly Planner: support rice as a first-class item, including user-created rice dishes.
+          replace_once(
+              "function candidatesFor(role,category){if(role==='main')return mainPool();if(role==='veg')return vegPool();if(role==='soup')return soupPool();return category?completeByCategory(category):completePool()}",
+              "function candidatesFor(role,category){if(role==='main')return mainPool();if(role==='veg')return vegPool();if(role==='soup')return soupPool();if(role==='rice')return [rice,...userDishes.filter(d=>d.role==='rice'&&d.active!==false)];return category?completeByCategory(category):completePool()}",
+              'candidatesFor'
+          )
+          replace_once(
+              "const selectorTabs=[['Món chính','main',null],['Món rau','veg',null],['Món canh','soup',null],['Món một bữa','complete','all'],['Bún / Phở / Mì','complete','noodles'],['Cơm một món','complete','rice_plate'],['Salad / Gỏi','complete','salad'],['Lẩu / BBQ / Âu','complete','themes'],['Ăn ngoài','complete','outside']];",
+              "const selectorTabs=[['Món chính','main',null],['Món rau','veg',null],['Món canh','soup',null],['Cơm','rice',null],['Món một bữa','complete','all'],['Bún / Phở / Mì','complete','noodles'],['Cơm một món','complete','rice_plate'],['Salad / Gỏi','complete','salad'],['Lẩu / BBQ / Âu','complete','themes'],['Ăn ngoài','complete','outside']];",
+              'selectorTabs'
+          )
+
+          # Dish Library: include Cơm trắng in the catalog and make Canh/Cơm easy to filter.
+          replace_once(
+              "function fullPreviewCatalog(){return [...mainData,...boiled,...fried,...soupData,...completeData,...userDishes]}",
+              "function fullPreviewCatalog(){return [...mainData,...boiled,...fried,...soupData,rice,...completeData,...userDishes]}",
+              'fullPreviewCatalog'
+          )
+          replace_once(
+              "const libraryTabDefs=[['all','Tất cả'],['rice_family','Cơm nhà'],['noodles','Bún / Phở / Mì'],['rice_plate','Cơm một món'],['salad','Salad / Gỏi'],['themes','Lẩu / BBQ / Âu'],['outside','Ăn ngoài'],['mine','Món của tôi']];",
+              "const libraryTabDefs=[['all','Tất cả'],['rice_family','Cơm nhà'],['soup','Canh'],['rice','Cơm'],['noodles','Bún / Phở / Mì'],['rice_plate','Cơm một món'],['salad','Salad / Gỏi'],['themes','Lẩu / BBQ / Âu'],['outside','Ăn ngoài'],['mine','Món của tôi']];",
+              'libraryTabDefs'
+          )
+          replace_once(
+              "function libraryMatches(d,filter){if(filter==='all')return true;if(filter==='mine')return !!d.user;if(filter==='rice_family')return d.style==='rice_family'||['main','veg','soup','rice'].includes(d.role)&&!d.style;if(filter==='noodles')return['noodle_soup','dry_noodle','porridge'].includes(d.style);if(filter==='rice_plate')return d.style==='rice_plate';if(filter==='salad')return['salad','mixed'].includes(d.style);if(filter==='themes')return['hotpot','bbq','pasta','pizza'].includes(d.style);if(filter==='outside')return d.mode==='outside'||d.mode==='both';return true}",
+              "function libraryMatches(d,filter){if(filter==='all')return true;if(filter==='mine')return !!d.user;if(filter==='rice_family')return d.style==='rice_family'||['main','veg','soup','rice'].includes(d.role)&&!d.style;if(filter==='soup')return d.role==='soup';if(filter==='rice')return d.role==='rice';if(filter==='noodles')return['noodle_soup','dry_noodle','porridge'].includes(d.style);if(filter==='rice_plate')return d.style==='rice_plate';if(filter==='salad')return['salad','mixed'].includes(d.style);if(filter==='themes')return['hotpot','bbq','pasta','pizza'].includes(d.style);if(filter==='outside')return d.mode==='outside'||d.mode==='both';return true}",
+              'libraryMatches'
+          )
+
+          # Add/Edit Dish: soup remains explicit and rice becomes a selectable role.
+          replace_once(
+              '<span>Vai trò trong bữa</span><select id="dfRole"><option value="main">Món chính</option><option value="veg">Món rau</option><option value="soup">Món canh</option><option value="complete">Món một bữa</option></select>',
+              '<span>Nhóm món / vai trò trong bữa</span><select id="dfRole"><option value="main">Món chính</option><option value="veg">Món rau</option><option value="soup">Món canh</option><option value="rice">Cơm / tinh bột</option><option value="complete">Món một bữa</option></select>',
+              'dfRole options'
+          )
+          replace_once(
+              '<span>Kiểu món</span><select id="dfStyle">',
+              '<span>Kiểu món (chủ yếu cho món một bữa)</span><select id="dfStyle">',
+              'dfStyle label'
+          )
+          replace_once(
+              "dfStyle.onchange=syncCapabilityUi;document.getElementById('addDishBtn').onclick=()=>openDishForm();",
+              "dfStyle.onchange=syncCapabilityUi;dfRole.onchange=()=>{if(dfRole.value==='rice'){dfStyle.value='rice_family';syncCapabilityUi();renderGroupSelect('rice');dfMethod.value='Khác'}};document.getElementById('addDishBtn').onclick=()=>openDishForm();",
+              'dfRole onchange'
+          )
+
           p.write_text(s,encoding='utf-8')
-          assert "['Cơm','rice',null]" in s
-          assert "if(role==='rice')return [rice]" in s
+
+          # Deployment QA for the exact regression reported by the user.
+          checks=[
+              "['Cơm','rice',null]",
+              "if(role==='rice')return [rice,...userDishes.filter",
+              "soupData,rice,...completeData",
+              "['soup','Canh']",
+              "['rice','Cơm']",
+              'value="rice">Cơm / tinh bột',
+              'value="soup">Món canh'
+          ]
+          for check in checks:
+              if check not in s:
+                  raise SystemExit(f'QA missing: {check}')
           PY
 
       - name: Configure Pages
