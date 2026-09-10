@@ -93,7 +93,6 @@ jobs:
 
           p.write_text(s,encoding='utf-8')
 
-          # Deployment QA for the exact regression reported by the user.
           checks=[
               "['Cơm','rice',null]",
               "if(role==='rice')return [rice,...userDishes.filter",
@@ -107,6 +106,13 @@ jobs:
               if check not in s:
                   raise SystemExit(f'QA missing: {check}')
           PY
+
+      - name: Apply v0.10 compact planner and share summaries
+        run: |
+          python scripts/patch_v010.py site/index.html
+          grep -q 'Bản thực đơn' site/index.html
+          grep -q 'Bản danh sách cuối' site/index.html
+          grep -q 'Canh / súp' site/index.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
