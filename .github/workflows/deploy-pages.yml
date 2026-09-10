@@ -27,7 +27,9 @@ jobs:
       - name: Build static site
         run: |
           mkdir -p site
-          gzip -dc app.html.gz > site/index.html
+          cat payload/part*.b64 | base64 -d | gzip -dc > site/index.html
+          test $(wc -c < site/index.html) -gt 100000
+          grep -q '<!doctype html>' site/index.html
           touch site/.nojekyll
 
       - name: Configure Pages
