@@ -32,21 +32,25 @@ jobs:
           grep -q '<!doctype html>' site/index.html
           touch site/.nojekyll
 
-      - name: Inspect planner selector
+      - name: Add rice tab to planner selector
         run: |
           python - <<'PY'
           from pathlib import Path
-          s=Path('site/index.html').read_text(encoding='utf-8')
-          for needle in ['Món chính','Món rau','Món canh','Món một bữa','Cơm trắng','selector-type-chips']:
-              print('\n===== ',needle,' =====')
-              start=0
-              found=0
-              while True:
-                  i=s.find(needle,start)
-                  if i<0 or found>=4: break
-                  print(s[max(0,i-700):min(len(s),i+1200)])
-                  print('\n---')
-                  start=i+len(needle); found+=1
+          p=Path('site/index.html')
+          s=p.read_text(encoding='utf-8')
+          old="function candidatesFor(role,category){if(role==='main')return mainPool();if(role==='veg')return vegPool();if(role==='soup')return soupPool();return category?completeByCategory(category):completePool()}"
+          new="function candidatesFor(role,category){if(role==='main')return mainPool();if(role==='veg')return vegPool();if(role==='soup')return soupPool();if(role==='rice')return [rice];return category?completeByCategory(category):completePool()}"
+          if old not in s:
+              raise SystemExit('candidatesFor pattern not found')
+          s=s.replace(old,new,1)
+          old_tabs="const selectorTabs=[['Món chính','main',null],['Món rau','veg',null],['Món canh','soup',null],['Món một bữa','complete','all'],['Bún / Phở / Mì','complete','noodles'],['Cơm một món','complete','rice_plate'],['Salad / Gỏi','complete','salad'],['Lẩu / BBQ / Âu','complete','themes'],['Ăn ngoài','complete','outside']];"
+          new_tabs="const selectorTabs=[['Món chính','main',null],['Món rau','veg',null],['Món canh','soup',null],['Cơm','rice',null],['Món một bữa','complete','all'],['Bún / Phở / Mì','complete','noodles'],['Cơm một món','complete','rice_plate'],['Salad / Gỏi','complete','salad'],['Lẩu / BBQ / Âu','complete','themes'],['Ăn ngoài','complete','outside']];"
+          if old_tabs not in s:
+              raise SystemExit('selectorTabs pattern not found')
+          s=s.replace(old_tabs,new_tabs,1)
+          p.write_text(s,encoding='utf-8')
+          assert "['Cơm','rice',null]" in s
+          assert "if(role==='rice')return [rice]" in s
           PY
 
       - name: Configure Pages
